@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Woolz (WlzExtFFConvert reads gzip NRRD directly, so no Fiji/TIFF step). No -march flags: the cluster's
 # VMs expose a qemu64 CPU without SSE4.2/POPCNT, so nothing here may assume x86-64-v2.
 RUN git clone https://github.com/ma-tech/Woolz.git /tmp/woolz && cd /tmp/woolz && git checkout ${WOOLZ_REF} \
-    && autoreconf -i --force \
+    && mkdir -p m4 && cp Readme.md README && autoreconf -i --force \
     && CPPFLAGS="-I/usr/include/nifti -I/usr/include/cjson" ./configure --prefix=/opt/MouseAtlas \
          --enable-optimise --enable-openmp --enable-extff --with-pic --enable-static --disable-shared \
     && make -j"$(nproc)" && make install && cd / && rm -rf /tmp/woolz \
