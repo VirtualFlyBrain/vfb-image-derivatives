@@ -36,12 +36,40 @@ SOURCE = {('', 'unisex'): 'JRC2018U', ('', 'female'): 'JRC2018F', ('', 'male'): 
           ('vnc', 'unisex'): 'JRCVNC2018U', ('vnc', 'female'): 'JRCVNC2018F', ('vnc', 'male'): 'JRCVNC2018M'}
 
 
+# Older Janelia 'primary' alignment: JFRC2010 brain (1024x512x218). The stack is on the JFRC2 pixel grid, whose
+# calibration is 0.622088 um isotropic (flybrains' JFRC2); the H5J's own voxel_size says a rounded 0.62.
+OLD_BRAIN_SPACE = re.compile(r'^JFRC2010_20x$')
+SOURCE_VOXEL = {'JFRC2': [0.622088, 0.622088, 0.622088]}
+
+
 def templates_for(space):
+    if OLD_BRAIN_SPACE.match(space or ''):
+        return 'JFRC2', 'JRC2018U'
     m = SPACE_RE.match(space or '')
     if not m:
         return None
     vnc = 'vnc' if m.group(1) else ''
     return SOURCE[(vnc, m.group(2).lower())], ('JRCVNC2018U' if vnc else 'JRC2018U')
+
+
+def patch_h5j_info(p):
+    """Make the vendored processor use templates_for() for the source/target and the calibrated voxel size.
+
+    Its own read_h5j_info maps every space without FEMALE/MALE to the unisex template (no warp), which is how
+    JFRC2010 and 2017-VNC stacks were once written unwarped. Spaces templates_for() refuses never get this far
+    (plan() skips them); this makes the processor agree with the plan for the ones it accepts."""
+    orig = p.read_h5j_info
+
+    def read_h5j_info(path):
+        info = orig(path)
+        pair = templates_for(info['alignment_space'])
+        if pair is None:
+            raise ValueError(f"unsupported alignment space {info['alignment_space']}")
+        info['source_template'], info['target_template'] = pair
+        if pair[0] in SOURCE_VOXEL:
+            info['voxel_size'] = np.asarray(SOURCE_VOXEL[pair[0]], dtype=float)
+        return info
+    p.read_h5j_info = read_h5j_info
 
 
 class Neo:
@@ -210,11 +238,14 @@ def run(a):
     os.environ.setdefault('SIGNAL_THRESHOLD', str(a.signal_threshold))
     import process_h5j_simple as p
     import warp_fields
+    patch_h5j_info(p)
     items = [json.loads(l) for l in open(os.path.join(a.run_dir, 'batches', a.batch + '.jsonl'))]
     specs = json.load(open(os.path.join(a.run_dir, 'plan.json')))['templates']
     fields = {}
     for pair in {(i['source'], i['target']) for i in items if i['source'] != i['target']}:
         npy, js = warp_fields.field_paths(*pair, directory=a.warp_dir)
+        if not os.path.exists(npy) and a.extra_warp_dir:       # one-off maps baked into the pipeline-out volume
+            npy, js = warp_fields.field_paths(*pair, directory=a.extra_warp_dir)
         local = os.path.join(a.scratch, os.path.basename(npy))
         if not os.path.exists(local):            # one copy per pod onto its Longhorn scratch, then memory-mapped
             t = time.time()
@@ -268,6 +299,7 @@ def main():
     ap.add_argument('--batch')
     ap.add_argument('--batch-size', type=int, default=25)
     ap.add_argument('--warp-dir', default=os.environ.get('WARP_FIELD_DIR', '/warp'))
+    ap.add_argument('--extra-warp-dir', default=os.environ.get('EXTRA_WARP_DIR', '/out/warp'))
     ap.add_argument('--scratch', default='/scratch')
     ap.add_argument('--channel', default=os.environ.get('CHANNEL', '2'))
     ap.add_argument('--signal-threshold', type=int, default=int(os.environ.get('SIGNAL_THRESHOLD', '16')))
