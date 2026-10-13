@@ -10,7 +10,7 @@ Per-output failures are recorded in <run-dir>/results/<batch>.jsonl and do not f
 """
 import argparse, json, os, shutil, sys, time, traceback
 import nrrd
-from .common import FILE_MODE, template_path, atomic_write_bytes
+from .common import FILE_MODE, template_path, atomic_write_bytes, check_share_target, SHARE_NAMES
 from .scan import ROOTS
 from . import wlz as wlzmod
 from .pointcloud import point_cloud
@@ -23,12 +23,32 @@ def spacing_of(header):
     return [float(s) for s in header['spacings']]
 
 
+def share_perms(folder):
+    """Everything on the image share is 777: the folder and the outputs this worker writes in it."""
+    for n in SHARE_NAMES:
+        p = os.path.join(folder, n)
+        if os.path.isfile(p) and not os.path.islink(p):
+            try: os.chmod(p, 0o777)
+            except OSError: pass
+    try: os.chmod(folder, 0o777)
+    except OSError: pass
+
+
 def process(item, args, scratch, cache_dir):
     root_path = ROOTS[item['root']]
     src = os.path.join(root_path, item['dir'])
-    out_dir = os.path.join(args.run_dir, 'validate', item['root'], item['dir']) if args.validate else src
-    os.makedirs(out_dir, exist_ok=True)
     need = item['needs']
+    if args.validate:
+        out_dir = os.path.join(args.run_dir, 'validate', item['root'], item['dir'])
+        os.makedirs(out_dir, exist_ok=True)
+    else:
+        out_dir = src                     # never create folders on the share; the folder must already exist
+        names = {'thumb': ['thumbnail.png', 'thumbnailT.png'], 'wlz': ['volume.wlz'], 'obj': ['volume.obj']}
+        for k in need:
+            for n in names.get(k, []):
+                check_share_target(item['root'], item['dir'], n)
+        if not os.path.isdir(src):
+            return {'read': 'error: folder missing on the share'}
     res = {}
     local = None
     data = header = None
@@ -82,6 +102,8 @@ def process(item, args, scratch, cache_dir):
                 res['clean'] = f'ok: removed {len(gone)}'
             else:
                 res['clean'] = 'listed'
+        if not args.validate:
+            share_perms(out_dir)
     except Exception as e:
         res['read'] = f'error: {type(e).__name__}: {e}'
     finally:

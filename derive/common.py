@@ -1,7 +1,7 @@
-import os, tempfile
+import os, re, tempfile
 
 WOOLZ_BIN = os.environ.get('WOOLZ_BIN', '/opt/MouseAtlas/bin')
-FILE_MODE = 0o666
+FILE_MODE = 0o777   # everything on the image share is 777
 
 
 def atomic_write_bytes(path, data):
@@ -16,6 +16,17 @@ def atomic_write_bytes(path, data):
         try: os.unlink(tmp)
         except OSError: pass
         raise
+
+
+# The only place the worker may write on the share: VFB/i/<4>/<4>/VFB_<8>/ (id chars 4-8, 8-12, template id),
+# and only these names.
+SHARE_DIR = re.compile(r'^VFB/i/[^/]{4}/[^/]{4}/VFB_[^/]{8}$')
+SHARE_NAMES = {'thumbnail.png', 'thumbnailT.png', 'volume.wlz', 'volume.obj'}
+
+
+def check_share_target(root, rel, name):
+    if root != 'data' or not SHARE_DIR.match(rel) or name not in SHARE_NAMES:
+        raise PermissionError(f'refusing to write {root}:{rel}/{name} (outside VFB/i/xxxx/xxxx/VFB_xxxxxxxx/)')
 
 
 def atomic_copy(src, dst):

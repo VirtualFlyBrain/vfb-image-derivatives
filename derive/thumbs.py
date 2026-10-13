@@ -17,7 +17,7 @@ def template_mip(template_nrrd, cache_dir):
     if not os.path.exists(out) or os.path.getmtime(out) < os.path.getmtime(template_nrrd):
         tmp = f'{out}.tmp-{os.getpid()}.png'
         create_mip(template_nrrd, tmp, False, True)
-        os.chmod(tmp, 0o666)
+        os.chmod(tmp, 0o777)
         os.replace(tmp, out)
     return out
 
