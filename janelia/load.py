@@ -223,7 +223,13 @@ def load_one(p, item, fields, specs, a):
               'space dimension': 3, 'space units': ['microns'] * 3, 'encoding': 'gzip'}
     if not os.path.isdir(dest):
         os.makedirs(dest, exist_ok=True)
-    os.chmod(dest, 0o777)
+    try:
+        if (os.stat(dest).st_mode & 0o777) != 0o777:
+            os.chmod(dest, 0o777)
+    except PermissionError:
+        pass  # dir owned by another uid (pre-existing); only matters if it is not already writable
+    if not os.access(dest, os.W_OK):
+        return f'failed: {dest} is not writable'
     if rgb:
         r, g, b = (vols[f'signal_{i}'] for i in range(3))
         for n, d in zip(RGB_NAMES, (np.maximum(np.maximum(r, g), b), r, g, b)):
