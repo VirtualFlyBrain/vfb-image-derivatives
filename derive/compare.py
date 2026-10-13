@@ -40,6 +40,9 @@ def main():
         rel = os.path.relpath(new_dir, os.path.join(vroot, root))
         old_dir = os.path.join(ROOTS[root], rel)
         row = {'dir': rel}
+        for n in ('thumbnail.png', 'thumbnailT.png', 'volume.wlz', 'volume.obj'):
+            if not os.path.exists(os.path.join(new_dir, n)):
+                row[n] = {'same': False, 'why': 'not produced'}
         for n in ('thumbnail.png', 'thumbnailT.png'):
             if os.path.exists(os.path.join(new_dir, n)):
                 row[n] = img_diff(os.path.join(old_dir, n), os.path.join(new_dir, n))
@@ -54,13 +57,16 @@ def main():
     for r in rows:
         for k, v in r.items():
             if isinstance(v, dict):
-                t = tally.setdefault(k, {'same': 0, 'diff': 0}); t['same' if v['same'] else 'diff'] += 1
+                t = tally.setdefault(k, {'same': 0, 'diff': 0, 'missing': 0})
+                t['same' if v['same'] else 'missing' if v.get('why') == 'not produced' else 'diff'] += 1
     json.dump({'tally': tally, 'rows': rows}, open(os.path.join(a.run_dir, 'compare.json'), 'w'), indent=1)
     print(json.dumps(tally, indent=1))
     for r in rows:
         bad = {k: v for k, v in r.items() if isinstance(v, dict) and not v['same']}
         if bad:
             print(r['dir'], json.dumps(bad)[:400])
+    if not rows or any(t['missing'] for t in tally.values()):
+        raise SystemExit('validation incomplete: outputs missing (see compare.json)')
 
 
 if __name__ == '__main__':
