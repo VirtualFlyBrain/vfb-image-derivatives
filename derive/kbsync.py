@@ -39,14 +39,15 @@ def load_scan(run_dir):
                 if r['root'] == 'data':
                     files[r['dir']] = set(r['files'])
                     shards.add('/'.join(r['dir'].split('/')[:3]))
-    # outputs written by this run's derive step
-    for p in glob.glob(os.path.join(run_dir, 'results', '*.jsonl')):
+    # outputs written by this run's derive step (a --validate run wrote them elsewhere, so they do not count)
+    validate_run = os.path.isdir(os.path.join(run_dir, 'validate'))
+    for p in ([] if validate_run else glob.glob(os.path.join(run_dir, 'results', '*.jsonl'))):
         for line in open(p):
             r = json.loads(line)
             root, _, d = r['key'].partition(':')
             if root == 'data' and d in files:
                 for out, res in r.get('results', {}).items():
-                    if str(res).startswith(('ok', 'written', 'linked')):
+                    if str(res).startswith('ok'):
                         files[d].update({'thumb': ['thumbnail.png', 'thumbnailT.png'], 'wlz': ['volume.wlz'],
                                          'obj': ['volume.obj']}.get(out, []))
     return files, shards
@@ -55,7 +56,10 @@ def load_scan(run_dir):
 class Neo:
     def __init__(self, url):
         self.url = url.rstrip('/') + '/db/neo4j/tx/commit'
-        tok = base64.b64encode(f"{os.environ.get('NEO4J_USER', 'neo4j')}:{os.environ['NEO4J_PASSWORD']}".encode()).decode()
+        user, pw = os.environ.get('NEO4J_USER', 'neo4j'), os.environ.get('NEO4J_PASSWORD')
+        if pw is None:                                   # the kbw Secret holds NEO4J_AUTH=<user>/<password>
+            user, _, pw = os.environ['NEO4J_AUTH'].partition('/')
+        tok = base64.b64encode(f'{user}:{pw}'.encode()).decode()
         self.h = {'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Basic ' + tok}
 
     def run(self, statements):
