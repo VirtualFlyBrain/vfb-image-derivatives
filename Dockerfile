@@ -7,7 +7,7 @@ ARG NRRDTOOLS_REF=4e7594d
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential autoconf automake libtool pkg-config git ca-certificates \
       libjpeg-dev libtiff-dev libnifti2-dev libcjson-dev libbz2-dev liblzma-dev zlib1g-dev \
-      imagemagick \
+      imagemagick ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Woolz (WlzExtFFConvert reads gzip NRRD directly, so no Fiji/TIFF step). No -march flags: the cluster's
@@ -20,12 +20,13 @@ RUN git clone https://github.com/ma-tech/Woolz.git /tmp/woolz && cd /tmp/woolz &
     && /opt/MouseAtlas/bin/WlzFacts -h 2>&1 | head -1
 
 # numpy < 2.4: 2.4+ wheels need x86-64-v2 (the hosts are qemu64).
-RUN pip install --no-cache-dir "numpy<2.4" pynrrd "scipy<1.15" pillow matplotlib pytest
+RUN pip install --no-cache-dir "numpy<2.4" pynrrd "scipy<1.15" pillow matplotlib pytest h5py
 
 RUN git clone https://github.com/Robbie1977/NRRDtools.git /opt/NRRDtools && cd /opt/NRRDtools && git checkout ${NRRDTOOLS_REF}
 
 WORKDIR /app
 COPY derive /app/derive
+COPY janelia /app/janelia
 COPY tests /app/tests
 RUN python -m pytest -q tests
 ENV PYTHONPATH=/app NRRDTOOLS=/opt/NRRDtools WOOLZ_BIN=/opt/MouseAtlas/bin PYTHONUNBUFFERED=1
