@@ -41,12 +41,18 @@ SOURCE = {('', 'unisex'): 'JRC2018U', ('', 'female'): 'JRC2018F', ('', 'male'): 
 # calibration is 0.622088 um isotropic (flybrains' JFRC2); the H5J's own voxel_size says a rounded 0.62.
 OLD_BRAIN_SPACE = re.compile(r'^JFRC2010_20x$')
 OLD_VNC_SPACE = re.compile(r'^FemaleVNCSymmetric2017_20x$')  # Court2018 / 20x_flyVNCtemplate_Female_symmetric
-SOURCE_VOXEL = {'JFRC2': [0.622088, 0.622088, 0.622088], 'COURT2018': [0.4612588, 0.4612588, 0.7]}
+# 63x brain stacks (Aligned63xScale.h5j): JFRC2013_63x, 1450x725x436 @ 0.38 um = the flybrains JFRC2013 grid (checked 2026-10-14).
+# Bridge JRC2018U -> JRC2018F -> JFRC2013 (Saalfeld H5 transforms via navis), baked like the other maps.
+OLD_63X_SPACE = re.compile(r'^JFRC2013_63x$')
+SOURCE_VOXEL = {'JFRC2': [0.622088, 0.622088, 0.622088], 'COURT2018': [0.4612588, 0.4612588, 0.7],
+                'JFRC2013': [0.38, 0.38, 0.38]}
 
 
 def templates_for(space):
     if OLD_BRAIN_SPACE.match(space or ''):
         return 'JFRC2', 'JRC2018U'
+    if OLD_63X_SPACE.match(space or ''):
+        return 'JFRC2013', 'JRC2018U'
     if OLD_VNC_SPACE.match(space or ''):
         return 'COURT2018', 'JRCVNC2018U'
     m = SPACE_RE.match(space or '')
