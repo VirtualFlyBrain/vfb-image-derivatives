@@ -6,7 +6,8 @@ def test_spaces():
     assert templates_for('JRC2018_VNC_MALE_40x_DS') == ('JRCVNC2018M', 'JRCVNC2018U')
     assert templates_for('JRC2018_Unisex_20x_HR') == ('JRC2018U', 'JRC2018U')
     assert templates_for('JFRC2010_20x') == ('JFRC2', 'JRC2018U')
-    for bad in ('JFRC2010_63x', 'JFRC2010', 'FemaleVNCSymmetric2017_20x', 'primary', '', None):
+    assert templates_for('FemaleVNCSymmetric2017_20x') == ('COURT2018', 'JRCVNC2018U')
+    for bad in ('JFRC2010_63x', 'JFRC2010', 'FemaleVNCSymmetric2017_63x', 'primary', '', None):
         assert templates_for(bad) is None
 
 
@@ -24,7 +25,7 @@ def test_patched_info_uses_plan_templates():
     import types
     import numpy as np
     from janelia.load import patch_h5j_info
-    infos = {'a': 'JFRC2010_20x', 'b': 'JRC2018_FEMALE_20x_HR', 'c': 'FemaleVNCSymmetric2017_20x'}
+    infos = {'a': 'JFRC2010_20x', 'b': 'JRC2018_FEMALE_20x_HR', 'c': 'primary', 'd': 'FemaleVNCSymmetric2017_20x'}
     fake = types.SimpleNamespace(read_h5j_info=lambda path: {
         'alignment_space': infos[path], 'voxel_size': np.array([0.62, 0.62, 0.62]),
         'source_template': 'JRC2018U', 'target_template': 'JRC2018U'})
@@ -39,3 +40,6 @@ def test_patched_info_uses_plan_templates():
         assert False
     except ValueError:
         pass
+    d = fake.read_h5j_info('d')
+    assert (d['source_template'], d['target_template']) == ('COURT2018', 'JRCVNC2018U')
+    assert list(d['voxel_size']) == [0.4612588, 0.4612588, 0.7]

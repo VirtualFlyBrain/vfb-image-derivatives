@@ -36,15 +36,19 @@ SOURCE = {('', 'unisex'): 'JRC2018U', ('', 'female'): 'JRC2018F', ('', 'male'): 
           ('vnc', 'unisex'): 'JRCVNC2018U', ('vnc', 'female'): 'JRCVNC2018F', ('vnc', 'male'): 'JRCVNC2018M'}
 
 
-# Older Janelia 'primary' alignment: JFRC2010 brain (1024x512x218). The stack is on the JFRC2 pixel grid, whose
+# Older Janelia 'primary' alignments: FemaleVNCSymmetric2017 = Court2018 VNS (512x1024x220, 0.4612588 x 0.4612588 x 0.7 um; JACS says 0.52/0.52/1.0, which is wrong for the registration), bridged to JRCVNC2018U by VFB's
+# DrosAdultVNSdomains CMTK warp. JFRC2010 brain (1024x512x218). The stack is on the JFRC2 pixel grid, whose
 # calibration is 0.622088 um isotropic (flybrains' JFRC2); the H5J's own voxel_size says a rounded 0.62.
 OLD_BRAIN_SPACE = re.compile(r'^JFRC2010_20x$')
-SOURCE_VOXEL = {'JFRC2': [0.622088, 0.622088, 0.622088]}
+OLD_VNC_SPACE = re.compile(r'^FemaleVNCSymmetric2017_20x$')  # Court2018 / 20x_flyVNCtemplate_Female_symmetric
+SOURCE_VOXEL = {'JFRC2': [0.622088, 0.622088, 0.622088], 'COURT2018': [0.4612588, 0.4612588, 0.7]}
 
 
 def templates_for(space):
     if OLD_BRAIN_SPACE.match(space or ''):
         return 'JFRC2', 'JRC2018U'
+    if OLD_VNC_SPACE.match(space or ''):
+        return 'COURT2018', 'JRCVNC2018U'
     m = SPACE_RE.match(space or '')
     if not m:
         return None
