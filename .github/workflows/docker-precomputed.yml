@@ -1,0 +1,35 @@
+# Build virtualflybrain/vfb-precomputed from applications/pipeline of MetaCell/virtual-fly-brain at a pinned
+# ref (that repo has no Docker Hub secrets; this one has the VFB org's). Run by hand; the Argo
+# WorkflowTemplate `precomputed` in vfb-k8s pins the resulting <sha> tag.
+name: Build and push precomputed image
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: MetaCell/virtual-fly-brain commit or branch to build applications/pipeline from
+        required: true
+        default: development
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: MetaCell/virtual-fly-brain
+          ref: ${{ inputs.ref }}
+      - id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: applications/pipeline
+          push: true
+          tags: |
+            virtualflybrain/vfb-precomputed:${{ steps.sha.outputs.short }}
+            virtualflybrain/vfb-precomputed:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
