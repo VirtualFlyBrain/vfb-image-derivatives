@@ -8,7 +8,8 @@ Reads the run's scan (<run-dir>/folders/*.jsonl.gz) plus the files the derive st
 either from --edges (the JSON of a tx/commit export) or live from --neo4j (NEO4J_USER / NEO4J_PASSWORD).
 
 Per edge (folder http://www.virtualflybrain.org/data/VFB/i/... -> scanned dir VFB/i/...):
-  nrrd volume.nrrd, swc volume.swc, thumbnail thumbnail.png, wlz volume.wlz, obj volume_man.obj else volume.obj:
+  nrrd volume.nrrd, swc volume.swc, thumbnail thumbnail.png, wlz volume.wlz, precomputed precomputed.zip,
+  obj volume_man.obj else volume.obj:
     set to [folder + name] when the file exists, removed when it does not; only differences are written.
   block: thumbnail.png or thumbnailT.png missing -> r.block=['Missing Image'] (+ r.missing_since);
          both present and r.block=['Missing Image'] -> block removed.
@@ -23,11 +24,12 @@ from collections import Counter, defaultdict
 
 PREFIXES = ('http://www.virtualflybrain.org/data/', 'https://www.virtualflybrain.org/data/',
             'http://virtualflybrain.org/data/', 'https://virtualflybrain.org/data/')
-PROPS = {'nrrd': 'volume.nrrd', 'swc': 'volume.swc', 'thumbnail': 'thumbnail.png', 'wlz': 'volume.wlz'}
+PROPS = {'nrrd': 'volume.nrrd', 'swc': 'volume.swc', 'thumbnail': 'thumbnail.png', 'wlz': 'volume.wlz',
+         'precomputed': 'precomputed.zip'}
 AUTO_EDGE = ['Missing Image']
 AUTO_NODE = ['New Images']
 EDGE_QUERY = ('MATCH (i:Individual)<-[:depicts]-(:Individual)-[r:in_register_with]->(:Template) WHERE exists(r.folder) '
-              'RETURN id(r), i.short_form, r.folder, r.block, i.block, r.nrrd, r.swc, r.thumbnail, r.wlz, r.obj')
+              'RETURN id(r), i.short_form, r.folder, r.block, i.block, r.nrrd, r.swc, r.thumbnail, r.wlz, r.obj, r.precomputed')
 
 
 def load_scan(run_dir):
@@ -101,7 +103,7 @@ def plan(edges, files, shards, today):
         have = files.get(rel)
         if have is None:
             c['folder_missing'] += 1; have = set()
-        current = dict(zip(['nrrd', 'swc', 'thumbnail', 'wlz', 'obj'], cur))
+        current = dict(zip(['nrrd', 'swc', 'thumbnail', 'wlz', 'obj', 'precomputed'], cur))
         want = {k: [folder + n] if n in have else None for k, n in PROPS.items()}
         want['obj'] = [folder + 'volume_man.obj'] if 'volume_man.obj' in have else [folder + 'volume.obj'] if 'volume.obj' in have else None
         new = {}
@@ -135,7 +137,7 @@ def write(neo, ch, batch=5000):
         neo.run([('UNWIND $rows AS row MATCH ()-[r:in_register_with]->() WHERE id(r) = row.id '
                   'AND (r.block IS NULL OR r.block = $auto) SET r += row.props', {'rows': rows, 'auto': AUTO_EDGE})])
     for k, ids in ch['remove'].items():
-        assert k in ('nrrd', 'swc', 'thumbnail', 'wlz', 'obj')
+        assert k in ('nrrd', 'swc', 'thumbnail', 'wlz', 'obj', 'precomputed')
         for part in chunks(ids):
             neo.run([(f'UNWIND $ids AS rid MATCH ()-[r:in_register_with]->() WHERE id(r) = rid '
                       f'AND (r.block IS NULL OR r.block = $auto) REMOVE r.{k}', {'ids': part, 'auto': AUTO_EDGE})])
