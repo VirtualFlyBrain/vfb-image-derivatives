@@ -91,7 +91,7 @@ def process(item, args, scratch, cache_dir):
             except Exception as e:
                 res['obj'] = f'error: {type(e).__name__}: {e}'
         if 'clean' in need:
-            if args.clean and not args.validate:
+            if args.clean and not args.validate and item['root'] == 'data':   # never delete uploads' files
                 gone = []
                 for n in need['clean']:
                     p = os.path.join(src, n)
