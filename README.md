@@ -11,6 +11,8 @@ Makes the derived files for every image folder in the VFB image store
 | — | legacy `volume_bounded*` intermediates removed | Clean_bounded_images |
 
 Each `volume.nrrd` is read from the share once; outputs are written as `<name>.tmp-*` and renamed into place.
+Upload folders (`--root private`, workflow parameter `private=true`) get the same three outputs from the
+`volume.nrrd` / `volume_man.obj` the upload NBLAST job writes; the legacy-intermediate clean never deletes there.
 
 Run on the VFB cluster as the Argo workflow `image-derivatives` (talosconfig `apps/pipeline`):
 `scan` (one pod per shard) → `plan` → `derive` (batches in parallel, `vfb-batch` priority) → `report`.
