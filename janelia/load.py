@@ -114,11 +114,12 @@ def template_specs(neo, symbols):
 
 
 def kb_folders(neo):
-    """{'20x-Brain-<sample>': {template_id: [(folder, block), ...]}} - as jenkins_pipeline.kb_folder_index."""
+    """{'20x-Brain-<sample>': {template_id: [(folder, block), ...]}} - as jenkins_pipeline.kb_folder_index.
+    Deprecated individuals are skipped, so a twin retired as a duplicate does not make the image ambiguous."""
     index = {}
     for fn, folder, block in neo.rows(
-            "MATCH (:Individual)<-[:depicts]-(:Individual)-[r:in_register_with]->(:Template) "
-            "WHERE exists(r.filename) AND exists(r.folder) AND r.filename[0] =~ '(20x|40x|63x)-(Brain|VNC)-[0-9]+' "
+            "MATCH (i:Individual)<-[:depicts]-(:Individual)-[r:in_register_with]->(:Template) "
+            "WHERE NOT i:Deprecated AND exists(r.filename) AND exists(r.folder) AND r.filename[0] =~ '(20x|40x|63x)-(Brain|VNC)-[0-9]+' "
             "RETURN r.filename[0], r.folder[0], CASE WHEN exists(r.block) THEN r.block[0] ELSE null END"):
         index.setdefault(fn, {}).setdefault(folder.rstrip('/').split('/')[-1], []).append((folder, block))
     return index
